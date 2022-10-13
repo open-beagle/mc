@@ -48,7 +48,7 @@ steps:
     settings:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-amd64
-      repo: wod/minio
+      repo: wod/mc
       version: 2022-10-09
       channel: amd64
       args: 'TARGETOS=linux,TARGETARCH=amd64'
@@ -66,7 +66,7 @@ steps:
     settings:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-arm64
-      repo: wod/minio
+      repo: wod/mc
       version: 2022-10-09
       channel: arm64
       args: 'TARGETOS=linux,TARGETARCH=arm64'
@@ -84,7 +84,7 @@ steps:
     settings:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-ppc64le
-      repo: wod/minio
+      repo: wod/mc
       version: 2022-10-09
       channel: ppc64le
       args: 'TARGETOS=linux,TARGETARCH=ppc64le'
@@ -101,8 +101,8 @@ steps:
         path: /var/run/docker.sock
     settings:
       platforms: linux/amd64,linux/arm64,linux/ppc64le
-      template: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-10-09-ARCH
-      target: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-10-09
+      template: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-10-09-ARCH
+      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-10-09
       username:
         from_secret: REGISTRY_USER_ALIYUN
       password:
@@ -131,8 +131,8 @@ steps:
       - name: docker
         path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-10-09-amd64
-      target: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-amd64
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-10-09-amd64
+      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-amd64
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
         from_secret: REGISTRY_USER_ALIYUN
@@ -145,8 +145,8 @@ steps:
       - name: docker
         path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-10-09-arm64
-      target: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-arm64
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-10-09-arm64
+      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-arm64
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
         from_secret: REGISTRY_USER_ALIYUN
@@ -159,8 +159,8 @@ steps:
       - name: docker
         path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-10-09-ppc64le
-      target: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-ppc64le
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-10-09-ppc64le
+      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-ppc64le
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
         from_secret: REGISTRY_USER_ALIYUN
@@ -174,8 +174,8 @@ steps:
         path: /var/run/docker.sock
     settings:
       platforms: linux/amd64,linux/arm64,linux/ppc64le
-      template: registry.cn-qingdao.aliyuncs.com/wod/minio:2022-ARCH
-      target: registry.cn-qingdao.aliyuncs.com/wod/minio:2022
+      template: registry.cn-qingdao.aliyuncs.com/wod/mc:2022-ARCH
+      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2022
       username:
         from_secret: REGISTRY_USER_ALIYUN
       password:
