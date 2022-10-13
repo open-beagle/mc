@@ -12,3 +12,5 @@ mc
 .run*
 .idea/
 mc.RELEASE*
+
+vendor/
