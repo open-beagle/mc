@@ -20,12 +20,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/fatih/color"
 	"github.com/minio/cli"
 	json "github.com/minio/colorjson"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
 )
@@ -75,7 +75,7 @@ func (c batchStartMessage) JSON() string {
 // checkBatchStartSyntax - validate all the passed arguments
 func checkBatchStartSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) != 2 {
-		cli.ShowCommandHelpAndExit(ctx, ctx.Command.Name, 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -93,7 +93,7 @@ func mainBatchStart(ctx *cli.Context) error {
 	adminClient, err := newAdminClient(aliasedURL)
 	fatalIf(err, "Unable to initialize admin connection.")
 
-	buf, e := ioutil.ReadFile(args.Get(1))
+	buf, e := os.ReadFile(args.Get(1))
 	fatalIf(probe.NewError(e), "Unable to read %s", args.Get(1))
 
 	ctxt, cancel := context.WithCancel(globalContext)

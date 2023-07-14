@@ -21,9 +21,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -58,7 +58,7 @@ EXAMPLES:
 
 func checkBucketExportSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) != 1 {
-		showCommandHelpAndExit(ctx, "export", 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -83,29 +83,31 @@ func mainClusterBucketExport(ctx *cli.Context) error {
 	aliasedURL = filepath.ToSlash(aliasedURL)
 	aliasedURL = filepath.Clean(aliasedURL)
 	_, bucket := url2Alias(aliasedURL)
-
 	r, e := client.ExportBucketMetadata(context.Background(), bucket)
 	fatalIf(probe.NewError(e).Trace(aliasedURL), "Unable to export bucket metadata.")
 
 	if bucket == "" {
-		bucket = "cluster"
+		bucket = "bucket"
 	}
-
 	// Create bucket metadata zip file
-	tmpFile, e := ioutil.TempFile("", fmt.Sprintf("%s-metadata-", bucket))
+	tmpFile, e := os.CreateTemp("", fmt.Sprintf("%s-%s-metadata-", strings.ReplaceAll(aliasedURL, "/", "-"), bucket))
 	fatalIf(probe.NewError(e), "Unable to download file data.")
 
 	ext := "zip"
 	// Copy zip content to target download file
 	_, e = io.Copy(tmpFile, r)
 	fatalIf(probe.NewError(e), "Unable to download bucket metadata.")
-
 	// Close everything
 	r.Close()
 	tmpFile.Close()
-
 	// We use 4 bytes of the 32 bytes to identify the file.
-	downloadPath := fmt.Sprintf("%s-metadata.%s", bucket, ext)
+	downloadPath := fmt.Sprintf("%s-%s-metadata.%s", aliasedURL, bucket, ext)
+	// Create necessary directories.
+	dir := filepath.Dir(downloadPath)
+	if e := os.MkdirAll(dir, 0o755); e != nil {
+		fatalIf(probe.NewError(e).Trace(dir), "Unable to create download directory")
+	}
+
 	fi, e := os.Stat(downloadPath)
 	if e == nil && !fi.IsDir() {
 		e = moveFile(downloadPath, downloadPath+"."+time.Now().Format(dateTimeFormatFilename))
@@ -115,14 +117,12 @@ func mainClusterBucketExport(ctx *cli.Context) error {
 			fatal(probe.NewError(e), "Unable to download file data")
 		}
 	}
-
 	fatalIf(probe.NewError(moveFile(tmpFile.Name(), downloadPath)), "Unable to rename downloaded data, file exists at %s", tmpFile.Name())
 
 	if !globalJSON {
 		console.Infof("Bucket metadata successfully downloaded as %s\n", downloadPath)
 		return nil
 	}
-
 	v := struct {
 		File string `json:"file"`
 		Key  string `json:"key,omitempty"`

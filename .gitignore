@@ -12,5 +12,5 @@ mc
 .run*
 .idea/
 mc.RELEASE*
-
-vendor/
+mc.gz
+.DS_Store

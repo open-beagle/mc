@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -102,6 +102,13 @@ EXAMPLES:
 `,
 }
 
+// checkCatSyntax - validate all the passed arguments
+func checkCatSyntax(ctx *cli.Context) {
+	if len(ctx.Args()) == 0 {
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
+	}
+}
+
 // prettyStdout replaces some non printable characters
 // with <hex> format to be better viewable by the user
 type prettyStdout struct {
@@ -139,9 +146,9 @@ func (s prettyStdout) Write(input []byte) (int, error) {
 	bufLen := s.buffer.Len()
 
 	// Copy all buffer content to the writer (stdout)
-	n, err := s.buffer.WriteTo(s.writer)
-	if err != nil {
-		return 0, err
+	n, e := s.buffer.WriteTo(s.writer)
+	if e != nil {
+		return 0, e
 	}
 
 	if int(n) != bufLen {
@@ -163,6 +170,9 @@ type catOpts struct {
 
 // parseCatSyntax performs command-line input validation for cat command.
 func parseCatSyntax(ctx *cli.Context) catOpts {
+	// Validate command-line arguments.
+	checkCatSyntax(ctx)
+
 	var o catOpts
 	o.args = ctx.Args()
 

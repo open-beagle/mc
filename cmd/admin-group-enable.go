@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -20,7 +20,7 @@ package cmd
 import (
 	"github.com/fatih/color"
 	"github.com/minio/cli"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
 )
@@ -50,7 +50,7 @@ EXAMPLES:
 // checkAdminGroupEnableSyntax - validate all the passed arguments
 func checkAdminGroupEnableSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) != 2 {
-		showCommandHelpAndExit(ctx, ctx.Command.Name, 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 

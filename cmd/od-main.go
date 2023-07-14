@@ -137,7 +137,7 @@ func prepareOdUrls(ctx context.Context, sourceURL, sourceVersion string, targetU
 	}
 
 	// All OK.. We can proceed. Type A
-	return makeCopyContentTypeA(sourceAlias, sourceContent, targetAlias, targetURL, encKeyDB)
+	return makeCopyContentTypeA(sourceAlias, sourceContent, targetAlias, targetURL)
 }
 
 // odCheckType checks if request is a download or upload and calls the appropriate function
@@ -163,7 +163,7 @@ func mainOD(cliCtx *cli.Context) error {
 	defer cancelCopy()
 
 	if !cliCtx.Args().Present() {
-		showCommandHelpAndExit(cliCtx, "od", 1) // last argument is exit code
+		showCommandHelpAndExit(cliCtx, 1) // last argument is exit code
 	}
 
 	var kvsArgs argKVS

@@ -35,7 +35,7 @@ import (
 	"github.com/klauspost/compress/gzip"
 	"github.com/minio/cli"
 	json "github.com/minio/colorjson"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
 	"github.com/tidwall/gjson"
@@ -84,18 +84,18 @@ FLAGS:
   {{range .VisibleFlags}}{{.}}
   {{end}}
 EXAMPLES:
-  1. Upload MinIO diagnostics report for 'play' (https://play.min.io by default) to SUBNET
-     {{.Prompt}} {{.HelpName}} play
+  1. Upload MinIO diagnostics report for cluster with alias 'myminio' to SUBNET
+     {{.Prompt}} {{.HelpName}} myminio
 
-  2. Generate MinIO diagnostics report for alias 'play' (https://play.min.io by default) save and upload to SUBNET manually
-     {{.Prompt}} {{.HelpName}} play --airgap
+  2. Generate MinIO diagnostics report for cluster with alias 'myminio', save and upload to SUBNET manually
+     {{.Prompt}} {{.HelpName}} myminio --airgap
 `,
 }
 
 // checkSupportDiagSyntax - validate arguments passed by a user
 func checkSupportDiagSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) == 0 || len(ctx.Args()) > 1 {
-		showCommandHelpAndExit(ctx, "diag", 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -159,7 +159,7 @@ func mainSupportDiag(ctx *cli.Context) error {
 
 	// Get the alias parameter from cli
 	aliasedURL := ctx.Args().Get(0)
-	alias, apiKey := initSubnetConnectivity(ctx, aliasedURL)
+	alias, apiKey := initSubnetConnectivity(ctx, aliasedURL, true)
 	if len(apiKey) == 0 {
 		// api key not passed as flag. Check that the cluster is registered.
 		apiKey = validateClusterRegistered(alias, true)
@@ -183,7 +183,7 @@ func execSupportDiag(ctx *cli.Context, client *madmin.AdminClient, alias string,
 		// Retrieve subnet credentials (login/license) beforehand as
 		// it can take a long time to fetch the health information
 		uploadURL := subnetUploadURL("health", filename)
-		reqURL, headers = prepareSubnetUploadURL(uploadURL, alias, filename, apiKey)
+		reqURL, headers = prepareSubnetUploadURL(uploadURL, alias, apiKey)
 	}
 
 	healthInfo, version, e := fetchServerDiagInfo(ctx, client)

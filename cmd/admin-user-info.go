@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -18,8 +18,12 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/minio/cli"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
 )
@@ -49,7 +53,7 @@ EXAMPLES:
 // checkAdminUserAddSyntax - validate all the passed arguments
 func checkAdminUserInfoSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) != 2 {
-		showCommandHelpAndExit(ctx, "info", 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -70,13 +74,41 @@ func mainAdminUserInfo(ctx *cli.Context) error {
 	user, e := client.GetUserInfo(globalContext, args.Get(1))
 	fatalIf(probe.NewError(e).Trace(args...), "Unable to get user info")
 
+	memberOf := []userGroup{}
+	for _, group := range user.MemberOf {
+		gd, e := client.GetGroupDescription(globalContext, group)
+		fatalIf(probe.NewError(e).Trace(args...), "Unable to fetch group info")
+		policies := []string{}
+		if gd.Policy != "" {
+			policies = strings.Split(gd.Policy, ",")
+		}
+		memberOf = append(memberOf, userGroup{
+			Name:     gd.Name,
+			Policies: policies,
+		})
+	}
+
 	printMsg(userMessage{
-		op:         "info",
-		AccessKey:  args.Get(1),
-		PolicyName: user.PolicyName,
-		UserStatus: string(user.Status),
-		MemberOf:   user.MemberOf,
+		op:             ctx.Command.Name,
+		AccessKey:      args.Get(1),
+		PolicyName:     user.PolicyName,
+		UserStatus:     string(user.Status),
+		MemberOf:       memberOf,
+		Authentication: authInfoToUserMessage(user.AuthInfo),
 	})
 
 	return nil
+}
+
+func authInfoToUserMessage(a *madmin.UserAuthInfo) string {
+	if a == nil {
+		return ""
+	}
+
+	authServer := ""
+	if a.Type != madmin.BuiltinUserAuthType {
+		authServer = "/" + a.AuthServer
+	}
+
+	return fmt.Sprintf("%s%s (%s)", a.Type, authServer, a.AuthServerUserID)
 }

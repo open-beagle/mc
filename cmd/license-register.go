@@ -23,7 +23,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/minio/cli"
 	json "github.com/minio/colorjson"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
 )
@@ -105,7 +105,7 @@ func (li licRegisterMessage) JSON() string {
 // checkLicenseRegisterSyntax - validate arguments passed by a user
 func checkLicenseRegisterSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) == 0 || len(ctx.Args()) > 1 {
-		showCommandHelpAndExit(ctx, "register", 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -156,7 +156,7 @@ func mainLicenseRegister(ctx *cli.Context) error {
 
 	// Get the alias parameter from cli
 	aliasedURL := ctx.Args().Get(0)
-	alias, accAPIKey := initSubnetConnectivity(ctx, aliasedURL)
+	alias, accAPIKey := initSubnetConnectivity(ctx, aliasedURL, true)
 
 	clusterName := ctx.String("name")
 	if len(clusterName) == 0 {
@@ -169,16 +169,6 @@ func mainLicenseRegister(ctx *cli.Context) error {
 
 	regInfo := getClusterRegInfo(getAdminInfo(aliasedURL), clusterName)
 
-	alreadyRegistered := false
-	apiKey, _, e := getSubnetCreds(alias)
-	fatalIf(probe.NewError(e), "Error in fetching subnet API Key")
-	if len(apiKey) > 0 {
-		alreadyRegistered = true
-		if len(accAPIKey) == 0 {
-			accAPIKey = apiKey
-		}
-	}
-
 	lrm := licRegisterMessage{Status: "success", Alias: alias}
 	if globalAirgapped {
 		lrm.Type = "offline"
@@ -188,8 +178,23 @@ func mainLicenseRegister(ctx *cli.Context) error {
 
 		lrm.URL = subnetOfflineRegisterURL(regToken)
 	} else {
+		alreadyRegistered := false
+		if len(accAPIKey) == 0 {
+			apiKey, _, e := getSubnetCreds(alias)
+			fatalIf(probe.NewError(e), "Error in fetching subnet API Key")
+			if len(apiKey) > 0 {
+				alreadyRegistered = true
+				accAPIKey = apiKey
+			}
+		} else {
+			apiKey := getSubnetAPIKeyFromConfig(alias)
+			if len(apiKey) > 0 {
+				alreadyRegistered = true
+			}
+		}
+
 		lrm.Type = "online"
-		_, _, e = registerClusterOnSubnet(regInfo, alias, accAPIKey)
+		_, _, e := registerClusterOnSubnet(regInfo, alias, accAPIKey)
 		fatalIf(probe.NewError(e), "Could not register cluster with SUBNET:")
 
 		lrm.Action = "registered"

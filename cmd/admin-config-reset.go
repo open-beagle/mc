@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -65,17 +65,18 @@ EXAMPLES:
 type configResetMessage struct {
 	Status      string `json:"status"`
 	targetAlias string
+	key         string
 	restart     bool
 }
 
 // String colorized service status message.
 func (u configResetMessage) String() (msg string) {
 	msg += console.Colorize("ResetConfigSuccess",
-		"Key is successfully reset.\n")
-	suggestion := fmt.Sprintf("mc admin service restart %s", u.targetAlias)
+		fmt.Sprintf("'%s' is successfully reset.", u.key))
 	if u.restart {
+		suggestion := fmt.Sprintf("mc admin service restart %s", u.targetAlias)
 		msg += console.Colorize("ResetConfigSuccess",
-			fmt.Sprintf("Please restart your server with `%s`.\n", suggestion))
+			fmt.Sprintf("\nPlease restart your server with `%s`.", suggestion))
 	}
 	return
 }
@@ -92,7 +93,7 @@ func (u configResetMessage) JSON() string {
 // checkAdminConfigResetSyntax - validate all the passed arguments
 func checkAdminConfigResetSyntax(ctx *cli.Context) {
 	if !ctx.Args().Present() {
-		showCommandHelpAndExit(ctx, "reset", 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -144,6 +145,7 @@ func mainAdminConfigReset(ctx *cli.Context) error {
 	printMsg(configResetMessage{
 		targetAlias: aliasedURL,
 		restart:     restart,
+		key:         input,
 	})
 
 	return nil

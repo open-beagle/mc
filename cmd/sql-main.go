@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -102,7 +101,7 @@ EXAMPLES:
      {{.Prompt}} {{.HelpName}} --recursive --query "select * from S3Object" s3/personalbucket/my-large-csvs/
 
   2. Run a query on an object on MinIO.
-     {{.Prompt}} {{.HelpName}} --query "select count(s.power) from S3Object" myminio/iot-devices/power-ratio.csv
+     {{.Prompt}} {{.HelpName}} --query "select count(s.power) from S3Object s" myminio/iot-devices/power-ratio.csv
 
   3. Run a query on an encrypted object with customer provided keys.
      {{.Prompt}} {{.HelpName}} --encrypt-key "myminio/iot-devices=32byteslongsecretkeymustbegiven1" \
@@ -111,7 +110,7 @@ EXAMPLES:
   4. Run a query on an object on MinIO in gzip format using ; as field delimiter,
      newline as record delimiter and file header to be used
      {{.Prompt}} {{.HelpName}} --compression GZIP --csv-input "rd=\n,fh=USE,fd=;" \
-         --query "select count(s.power) from S3Object" myminio/iot-devices/power-ratio.csv.gz
+         --query "select count(s.power) from S3Object s" myminio/iot-devices/power-ratio.csv.gz
 
   5. Run a query on an object on MinIO in gzip format using ; as field delimiter,
      newline as record delimiter and file header to be used
@@ -323,15 +322,15 @@ func getCSVHeader(sourceURL string, encKeyDB map[string][]prefixSSEPair) ([]stri
 			defer r.Close()
 		} else if strings.Contains(ctype, "bzip") {
 			defer r.Close()
-			r = ioutil.NopCloser(bzip2.NewReader(r))
+			r = io.NopCloser(bzip2.NewReader(r))
 		} else {
 			defer r.Close()
 		}
 	}
 	br := bufio.NewReader(r)
-	line, _, err := br.ReadLine()
-	if err != nil {
-		return nil, probe.NewError(err)
+	line, _, e := br.ReadLine()
+	if e != nil {
+		return nil, probe.NewError(e)
 	}
 	return strings.Split(string(line), ","), nil
 }
@@ -430,7 +429,7 @@ func getAndValidateArgs(ctx *cli.Context, encKeyDB map[string][]prefixSSEPair, u
 // check sql input arguments.
 func checkSQLSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) == 0 {
-		showCommandHelpAndExit(ctx, "sql", 1) // last argument is exit code.
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code.
 	}
 }
 

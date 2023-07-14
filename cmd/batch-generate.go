@@ -19,9 +19,10 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/minio/cli"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 )
 
@@ -38,6 +39,8 @@ var batchGenerateCmd = cli.Command{
 USAGE:
   {{.HelpName}} TARGET JOBTYPE
 
+JOBTYPE:
+` + supportedJobTypes() + `
 FLAGS:
   {{range .VisibleFlags}}{{.}}
   {{end}}
@@ -47,10 +50,20 @@ EXAMPLES:
 `,
 }
 
+func supportedJobTypes() string {
+	var builder strings.Builder
+	for _, jobType := range madmin.SupportedJobTypes {
+		builder.WriteString("  - ")
+		builder.WriteString(string(jobType))
+		builder.WriteString("\n")
+	}
+	return builder.String()
+}
+
 // checkBatchGenerateSyntax - validate all the passed arguments
 func checkBatchGenerateSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) != 2 {
-		cli.ShowCommandHelpAndExit(ctx, ctx.Command.Name, 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -69,11 +82,14 @@ func mainBatchGenerate(ctx *cli.Context) error {
 
 	switch jobType {
 	case string(madmin.BatchJobReplicate):
+	case string(madmin.BatchJobKeyRotate):
 	default:
 		fatalIf(errInvalidArgument().Trace(jobType), "Unable to generate a job template for the specified job type")
 	}
 
-	out, e := adminClient.GenerateBatchJob(globalContext, madmin.GenerateBatchJobOpts{})
+	out, e := adminClient.GenerateBatchJob(globalContext, madmin.GenerateBatchJobOpts{
+		Type: madmin.BatchJobType(jobType),
+	})
 	fatalIf(probe.NewError(e), "Unable to generate %s", args.Get(1))
 
 	fmt.Println(string(out))

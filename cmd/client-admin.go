@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -24,13 +24,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mattn/go-ieproxy"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/httptracer"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -145,9 +144,6 @@ func newAdminClient(aliasedURL string) (*madmin.AdminClient, *probe.Error) {
 	s3Client, err := s3AdminNew(s3Config)
 	if err != nil {
 		return nil, err.Trace(alias, urlStrFull)
-	}
-	if globalDebug {
-		s3Client.TraceOn(os.Stdout)
 	}
 	return s3Client, nil
 }

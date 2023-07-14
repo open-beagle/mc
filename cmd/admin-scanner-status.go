@@ -32,7 +32,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/minio/cli"
 	json "github.com/minio/colorjson"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
 	"github.com/olekukonko/tablewriter"
@@ -63,6 +63,7 @@ var adminScannerInfoFlags = []cli.Flag{
 var adminScannerInfo = cli.Command{
 	Name:            "status",
 	Aliases:         []string{"info"},
+	HiddenAliases:   true,
 	Usage:           "summarize scanner events on MinIO server in real-time",
 	Action:          mainAdminScannerInfo,
 	OnUsageError:    onUsageError,
@@ -87,7 +88,7 @@ EXAMPLES:
 // checkAdminTopAPISyntax - validate all the passed arguments
 func checkAdminScannerInfoSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) == 0 || len(ctx.Args()) > 1 {
-		showCommandHelpAndExit(ctx, ctx.Command.Name, 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -132,7 +133,7 @@ func mainAdminScannerInfo(ctx *cli.Context) error {
 		}
 	}()
 
-	if e := ui.Start(); e != nil {
+	if _, e := ui.Run(); e != nil {
 		cancel()
 		fatalIf(probe.NewError(e).Trace(aliasedURL), "Unable to fetch scanner metrics")
 	}

@@ -22,7 +22,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/minio/cli"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 )
 
@@ -74,7 +74,7 @@ EXAMPLES:
 // checkSupportTopAPISyntax - validate all the passed arguments
 func checkSupportTopAPISyntax(ctx *cli.Context) {
 	if len(ctx.Args()) == 0 || len(ctx.Args()) > 1 {
-		showCommandHelpAndExit(ctx, "api", 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 
@@ -120,7 +120,7 @@ func mainSupportTopAPI(ctx *cli.Context) error {
 		}
 	}()
 
-	if e := p.Start(); e != nil {
+	if _, e := p.Run(); e != nil {
 		cancel()
 		fatalIf(probe.NewError(e).Trace(aliasedURL), "Unable to fetch top API events")
 	}

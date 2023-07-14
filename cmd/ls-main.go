@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -157,7 +157,7 @@ func parseRewindFlag(rewind string) (timeRef time.Time) {
 }
 
 // checkListSyntax - validate all the passed arguments
-func checkListSyntax(ctx context.Context, cliCtx *cli.Context) ([]string, doListOptions) {
+func checkListSyntax(cliCtx *cli.Context) ([]string, doListOptions) {
 	args := cliCtx.Args()
 	if !cliCtx.Args().Present() {
 		args = []string{"."}
@@ -175,9 +175,6 @@ func checkListSyntax(ctx context.Context, cliCtx *cli.Context) ([]string, doList
 	listZip := cliCtx.Bool("zip")
 
 	timeRef := parseRewindFlag(cliCtx.String("rewind"))
-	if timeRef.IsZero() && withOlderVersions {
-		timeRef = time.Now().UTC()
-	}
 
 	if listZip && (withOlderVersions || !timeRef.IsZero()) {
 		fatalIf(errInvalidArgument().Trace(args...), "Zip file listing can only be performed on the latest version")
@@ -213,7 +210,7 @@ func mainList(cliCtx *cli.Context) error {
 	console.SetColor("SC", color.New(color.FgBlue))
 
 	// check 'ls' cliCtx arguments.
-	args, opts := checkListSyntax(ctx, cliCtx)
+	args, opts := checkListSyntax(cliCtx)
 
 	var cErr error
 	for _, targetURL := range args {

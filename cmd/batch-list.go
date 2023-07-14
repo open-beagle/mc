@@ -24,7 +24,7 @@ import (
 	humanize "github.com/dustin/go-humanize"
 	"github.com/minio/cli"
 	json "github.com/minio/colorjson"
-	"github.com/minio/madmin-go"
+	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/olekukonko/tablewriter"
 )
@@ -120,7 +120,7 @@ func (c batchListMessage) JSON() string {
 // checkBatchListSyntax - validate all the passed arguments
 func checkBatchListSyntax(ctx *cli.Context) {
 	if len(ctx.Args()) != 1 {
-		cli.ShowCommandHelpAndExit(ctx, ctx.Command.Name, 1) // last argument is exit code
+		showCommandHelpAndExit(ctx, 1) // last argument is exit code
 	}
 }
 

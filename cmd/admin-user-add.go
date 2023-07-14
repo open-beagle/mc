@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2015-2022 MinIO, Inc.
 //
 // This file is part of MinIO Object Storage stack
 //
@@ -28,7 +28,7 @@ import (
 	json "github.com/minio/colorjson"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var adminUserAddCmd = cli.Command{
@@ -68,6 +68,10 @@ EXAMPLES:
      {{.DisableHistory}}
      {{.Prompt}} echo -e "foobar\nfoobar12345" | {{.HelpName}} myminio
      {{.EnableHistory}}
+
+  4. Add a new user 'foobar' to MinIO server, then attach IAM policy "writeonly".
+     {{.Prompt}} {{.HelpName}} myminio foobar foo12345 
+     {{.Prompt}} mc admin policy attach myminio writeonly --user foobar
 `,
 }
 
@@ -75,20 +79,26 @@ EXAMPLES:
 func checkAdminUserAddSyntax(ctx *cli.Context) {
 	argsNr := len(ctx.Args())
 	if argsNr > 3 || argsNr < 1 {
-		fatalIf(errInvalidArgument().Trace(ctx.Args().Tail()...),
-			"Incorrect number of arguments for user add command.")
+		showCommandHelpAndExit(ctx, 1)
 	}
+}
+
+// userGroup container for content message structure
+type userGroup struct {
+	Name     string   `json:"name,omitempty"`
+	Policies []string `json:"policies,omitempty"`
 }
 
 // userMessage container for content message structure
 type userMessage struct {
-	op         string
-	Status     string   `json:"status"` // TODO: remove this?
-	AccessKey  string   `json:"accessKey,omitempty"`
-	SecretKey  string   `json:"secretKey,omitempty"`
-	PolicyName string   `json:"policyName,omitempty"`
-	UserStatus string   `json:"userStatus,omitempty"`
-	MemberOf   []string `json:"memberOf,omitempty"`
+	op             string
+	Status         string      `json:"status"` // TODO: remove this?
+	AccessKey      string      `json:"accessKey,omitempty"`
+	SecretKey      string      `json:"secretKey,omitempty"`
+	PolicyName     string      `json:"policyName,omitempty"`
+	UserStatus     string      `json:"userStatus,omitempty"`
+	MemberOf       []userGroup `json:"memberOf,omitempty"`
+	Authentication string      `json:"authentication,omitempty"`
 }
 
 func (u userMessage) String() string {
@@ -105,13 +115,20 @@ func (u userMessage) String() string {
 			Field{"PolicyName", policyFieldMaxLen},
 		).buildRow(u.UserStatus, u.AccessKey, u.PolicyName)
 	case "info":
-		return console.Colorize("UserMessage", strings.Join(
-			[]string{
-				fmt.Sprintf("AccessKey: %s", u.AccessKey),
-				fmt.Sprintf("Status: %s", u.UserStatus),
-				fmt.Sprintf("PolicyName: %s", u.PolicyName),
-				fmt.Sprintf("MemberOf: %s", strings.Join(u.MemberOf, ",")),
-			}, "\n"))
+		memberOf := []string{}
+		for _, group := range u.MemberOf {
+			memberOf = append(memberOf, group.Name)
+		}
+		lines := []string{
+			fmt.Sprintf("AccessKey: %s", u.AccessKey),
+			fmt.Sprintf("Status: %s", u.UserStatus),
+			fmt.Sprintf("PolicyName: %s", u.PolicyName),
+			fmt.Sprintf("MemberOf: %s", memberOf),
+		}
+		if u.Authentication != "" {
+			lines = append(lines, fmt.Sprintf("Authentication: %s", u.Authentication))
+		}
+		return console.Colorize("UserMessage", strings.Join(lines, "\n"))
 	case "remove":
 		return console.Colorize("UserMessage", "Removed user `"+u.AccessKey+"` successfully.")
 	case "disable":
@@ -137,7 +154,7 @@ func fetchUserKeys(args cli.Args) (string, string) {
 	accessKey := ""
 	secretKey := ""
 	console.SetColor(cred, color.New(color.FgYellow, color.Italic))
-	isTerminal := terminal.IsTerminal(int(os.Stdin.Fd()))
+	isTerminal := term.IsTerminal(int(os.Stdin.Fd()))
 	reader := bufio.NewReader(os.Stdin)
 
 	argCount := len(args)
@@ -155,7 +172,7 @@ func fetchUserKeys(args cli.Args) (string, string) {
 	if argCount == 1 || argCount == 2 {
 		if isTerminal {
 			fmt.Printf("%s", console.Colorize(cred, "Enter Secret Key: "))
-			bytePassword, _ := terminal.ReadPassword(int(os.Stdin.Fd()))
+			bytePassword, _ := term.ReadPassword(int(os.Stdin.Fd()))
 			fmt.Printf("\n")
 			secretKey = string(bytePassword)
 		} else {
@@ -187,7 +204,7 @@ func mainAdminUserAdd(ctx *cli.Context) error {
 	fatalIf(probe.NewError(client.AddUser(globalContext, accessKey, secretKey)).Trace(args...), "Unable to add new user")
 
 	printMsg(userMessage{
-		op:         "add",
+		op:         ctx.Command.Name,
 		AccessKey:  accessKey,
 		SecretKey:  secretKey,
 		UserStatus: "enabled",
