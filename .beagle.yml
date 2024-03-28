@@ -36,7 +36,7 @@ steps:
         from_secret: SECRET_KEY_MINIO
 
   - name: golang
-    image: registry.cn-qingdao.aliyuncs.com/wod/golang:1.20
+    image: registry.cn-qingdao.aliyuncs.com/wod/golang:1.21
     commands:
       - bash .beagle/build.sh
 
