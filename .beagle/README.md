@@ -7,7 +7,7 @@ git remote add upstream git@github.com:minio/mc.git
 
 git fetch upstream
 
-git merge RELEASE.2023-07-11T23-30-44Z
+git merge RELEASE.2024-03-20T21-07-29Z
 ```
 
 ## debug
@@ -18,7 +18,7 @@ docker run -it \
 --rm \
 -v $PWD/:/go/src/github.com/minio/mc \
 -w /go/src/github.com/minio/mc \
-registry.cn-qingdao.aliyuncs.com/wod/golang:1.20 \
+registry.cn-qingdao.aliyuncs.com/wod/golang:1.21 \
 rm -rf vendor && go mod vendor
 
 # build
@@ -26,7 +26,7 @@ docker run -it \
 --rm \
 -v $PWD/:/go/src/github.com/minio/mc \
 -w /go/src/github.com/minio/mc \
-registry.cn-qingdao.aliyuncs.com/wod/golang:1.20 \
+registry.cn-qingdao.aliyuncs.com/wod/golang:1.21 \
 bash .beagle/build.sh
 
 # check
@@ -44,7 +44,6 @@ docker run --rm \
   -e PLUGIN_SECRET_KEY=$PLUGIN_SECRET_KEY \
   -e DRONE_REPO_OWNER="open-beagle" \
   -e DRONE_REPO_NAME="mc" \
-  -e DRONE_COMMIT_BRANCH="dev" \
   -e PLUGIN_MOUNT="vendor" \
   -v $(pwd):$(pwd) \
   -w $(pwd) \
@@ -58,7 +57,6 @@ docker run --rm \
   -e PLUGIN_SECRET_KEY=$PLUGIN_SECRET_KEY \
   -e DRONE_REPO_OWNER="open-beagle" \
   -e DRONE_REPO_NAME="mc" \
-  -e DRONE_COMMIT_BRANCH="dev" \
   -e PLUGIN_MOUNT="vendor" \
   -v $(pwd):$(pwd) \
   -w $(pwd) \
