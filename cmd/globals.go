@@ -24,10 +24,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/minio/cli"
 	"github.com/minio/madmin-go/v3"
-	"github.com/minio/pkg/console"
+	"github.com/minio/pkg/v2/console"
+	"github.com/muesli/termenv"
 )
 
 const (
@@ -80,14 +82,24 @@ var (
 )
 
 var (
-	// Terminal width
-	globalTermWidth int
+	// Terminal height/width, zero if not found
+	globalTermWidth, globalTermHeight int
 
-	globalHelpPager *termPager
+	globalDisablePagerFlag = "--disable-pager"
+	globalPagerDisabled    = false
+	globalHelpPager        *termPager
 
 	// CA root certificates, a nil value means system certs pool will be used
 	globalRootCAs *x509.CertPool
 )
+
+func parsePagerDisableFlag(args []string) {
+	for _, arg := range args {
+		if arg == globalDisablePagerFlag {
+			globalPagerDisabled = true
+		}
+	}
+}
 
 // Set global states. NOTE: It is deliberately kept monolithic to ensure we dont miss out any flags.
 func setGlobalsFromContext(ctx *cli.Context) error {
@@ -111,6 +123,7 @@ func setGlobalsFromContext(ctx *cli.Context) error {
 	// Disable colorified messages if requested.
 	if globalNoColor || globalQuiet {
 		console.SetColorOff()
+		lipgloss.SetColorProfile(termenv.Ascii)
 	}
 
 	globalConnReadDeadline = ctx.Duration("conn-read-deadline")

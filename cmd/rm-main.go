@@ -33,7 +33,7 @@ import (
 	json "github.com/minio/colorjson"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/pkg/console"
+	"github.com/minio/pkg/v2/console"
 )
 
 // rm specific flags.
@@ -243,30 +243,35 @@ func checkRmSyntax(ctx context.Context, cliCtx *cli.Context, encKeyDB map[string
 		fatalIf(errDummy().Trace(),
 			"You cannot specify --purge with --recursive.")
 	}
+
 	if isForceDel && (isNoncurrentVersion || isVersions || cliCtx.IsSet("older-than") || cliCtx.IsSet("newer-than") || versionID != "") {
 		fatalIf(errDummy().Trace(),
 			"You cannot specify --purge flag with any flag(s) other than --force.")
 	}
-	for _, url := range cliCtx.Args() {
-		// clean path for aliases like s3/.
-		// Note: UNC path using / works properly in go 1.9.2 even though it breaks the UNC specification.
-		url = filepath.ToSlash(filepath.Clean(url))
-		// namespace removal applies only for non FS. So filter out if passed url represents a directory
-		dir := isAliasURLDir(ctx, url, encKeyDB, time.Time{})
-		if dir {
-			_, path := url2Alias(url)
-			isNamespaceRemoval = (path == "")
-			break
-		}
-		if dir && isRecursive && !isForce {
-			fatalIf(errDummy().Trace(),
-				"Removal requires --force flag. This operation is *IRREVERSIBLE*. Please review carefully before performing this *DANGEROUS* operation.")
-		}
-		if dir && !isRecursive {
-			fatalIf(errDummy().Trace(),
-				"Removal requires --recursive flag. This operation is *IRREVERSIBLE*. Please review carefully before performing this *DANGEROUS* operation.")
+
+	if !isForceDel {
+		for _, url := range cliCtx.Args() {
+			// clean path for aliases like s3/.
+			// Note: UNC path using / works properly in go 1.9.2 even though it breaks the UNC specification.
+			url = filepath.ToSlash(filepath.Clean(url))
+			// namespace removal applies only for non FS. So filter out if passed url represents a directory
+			dir, _ := isAliasURLDir(ctx, url, encKeyDB, time.Time{}, false)
+			if dir {
+				_, path := url2Alias(url)
+				isNamespaceRemoval = (path == "")
+				break
+			}
+			if dir && isRecursive && !isForce {
+				fatalIf(errDummy().Trace(),
+					"Removal requires --force flag. This operation is *IRREVERSIBLE*. Please review carefully before performing this *DANGEROUS* operation.")
+			}
+			if dir && !isRecursive {
+				fatalIf(errDummy().Trace(),
+					"Removal requires --recursive flag. This operation is *IRREVERSIBLE*. Please review carefully before performing this *DANGEROUS* operation.")
+			}
 		}
 	}
+
 	if !cliCtx.Args().Present() && !isStdin {
 		exitCode := 1
 		showCommandHelpAndExit(cliCtx, exitCode)
@@ -301,76 +306,91 @@ func removeSingle(url, versionID string, opts removeOpts) error {
 		modTime time.Time
 	)
 
-	_, content, pErr := url2Stat(ctx, url, versionID, false, opts.encKeyDB, time.Time{}, false)
-	if pErr != nil {
-		switch minio.ToErrorResponse(pErr.ToGoError()).StatusCode {
-		case http.StatusBadRequest, http.StatusMethodNotAllowed:
-			ignoreStatError = true
-		default:
-			errorIf(pErr.Trace(url), "Failed to remove `"+url+"`.")
+	targetAlias, targetURL, _ := mustExpandAlias(url)
+	if !opts.isForceDel {
+		_, content, pErr := url2Stat(ctx, url2StatOptions{
+			urlStr:                  url,
+			versionID:               versionID,
+			fileAttr:                false,
+			encKeyDB:                opts.encKeyDB,
+			timeRef:                 time.Time{},
+			isZip:                   false,
+			ignoreBucketExistsCheck: false,
+		})
+		if pErr != nil {
+			switch st := minio.ToErrorResponse(pErr.ToGoError()).StatusCode; st {
+			case http.StatusBadRequest, http.StatusMethodNotAllowed:
+				ignoreStatError = true
+			default:
+				_, ok := pErr.ToGoError().(ObjectMissing)
+				ignoreStatError = (st == http.StatusServiceUnavailable || ok || st == http.StatusNotFound) && (opts.isForce && opts.isForceDel)
+				if !ignoreStatError {
+					errorIf(pErr.Trace(url), "Failed to remove `"+url+"`.")
+					return exitStatus(globalErrorExitStatus)
+				}
+			}
+		} else {
+			isDir = content.Type.IsDir()
+			modTime = content.Time
+		}
+
+		// We should not proceed
+		if ignoreStatError && opts.olderThan != "" || opts.newerThan != "" {
+			errorIf(pErr.Trace(url), "Unable to stat `"+url+"`.")
 			return exitStatus(globalErrorExitStatus)
 		}
-	} else {
-		isDir = content.Type.IsDir()
-		modTime = content.Time
-	}
 
-	// We should not proceed
-	if ignoreStatError && opts.olderThan != "" || opts.newerThan != "" {
-		errorIf(pErr.Trace(url), "Unable to stat `"+url+"`.")
-		return exitStatus(globalErrorExitStatus)
-	}
-
-	// Skip objects older than older--than parameter if specified
-	if opts.olderThan != "" && isOlder(modTime, opts.olderThan) {
-		return nil
-	}
-
-	// Skip objects older than older--than parameter if specified
-	if opts.newerThan != "" && isNewer(modTime, opts.newerThan) {
-		return nil
-	}
-
-	targetAlias, targetURL, _ := mustExpandAlias(url)
-	if !opts.isFake {
-		clnt, pErr := newClientFromAlias(targetAlias, targetURL)
-		if pErr != nil {
-			errorIf(pErr.Trace(url), "Invalid argument `"+url+"`.")
-			return exitStatus(globalErrorExitStatus) // End of journey.
+		// Skip objects older than older--than parameter if specified
+		if opts.olderThan != "" && isOlder(modTime, opts.olderThan) {
+			return nil
 		}
 
-		if !strings.HasSuffix(targetURL, string(clnt.GetURL().Separator)) && isDir {
-			targetURL = targetURL + string(clnt.GetURL().Separator)
+		// Skip objects older than older--than parameter if specified
+		if opts.newerThan != "" && isNewer(modTime, opts.newerThan) {
+			return nil
 		}
 
-		contentCh := make(chan *ClientContent, 1)
-		contentURL := *newClientURL(targetURL)
-		contentCh <- &ClientContent{URL: contentURL, VersionID: versionID}
-		close(contentCh)
-		isRemoveBucket := false
-		resultCh := clnt.Remove(ctx, opts.isIncomplete, isRemoveBucket, opts.isBypass, opts.isForce && opts.isForceDel, contentCh)
-		for result := range resultCh {
-			if result.Err != nil {
-				errorIf(result.Err.Trace(url), "Failed to remove `"+url+"`.")
-				switch result.Err.ToGoError().(type) {
-				case PathInsufficientPermission:
-					// Ignore Permission error.
-					continue
-				}
-				return exitStatus(globalErrorExitStatus)
-			}
-			msg := rmMessage{
-				Key:       path.Join(targetAlias, result.BucketName, result.ObjectName),
-				VersionID: result.ObjectVersionID,
-			}
-			if result.DeleteMarker {
-				msg.DeleteMarker = true
-				msg.VersionID = result.DeleteMarkerVersionID
-			}
-			printMsg(msg)
+		if opts.isFake {
+			printDryRunMsg(targetAlias, content, opts.withVersions)
+			return nil
 		}
-	} else {
-		printDryRunMsg(targetAlias, content, opts.withVersions)
+	}
+
+	clnt, pErr := newClientFromAlias(targetAlias, targetURL)
+	if pErr != nil {
+		errorIf(pErr.Trace(url), "Invalid argument `"+url+"`.")
+		return exitStatus(globalErrorExitStatus) // End of journey.
+	}
+
+	if !strings.HasSuffix(targetURL, string(clnt.GetURL().Separator)) && isDir {
+		targetURL = targetURL + string(clnt.GetURL().Separator)
+	}
+
+	contentCh := make(chan *ClientContent, 1)
+	contentURL := *newClientURL(targetURL)
+	contentCh <- &ClientContent{URL: contentURL, VersionID: versionID}
+	close(contentCh)
+	isRemoveBucket := false
+	resultCh := clnt.Remove(ctx, opts.isIncomplete, isRemoveBucket, opts.isBypass, opts.isForce && opts.isForceDel, contentCh)
+	for result := range resultCh {
+		if result.Err != nil {
+			errorIf(result.Err.Trace(url), "Failed to remove `"+url+"`.")
+			switch result.Err.ToGoError().(type) {
+			case PathInsufficientPermission:
+				// Ignore Permission error.
+				continue
+			}
+			return exitStatus(globalErrorExitStatus)
+		}
+		msg := rmMessage{
+			Key:       path.Join(targetAlias, result.BucketName, result.ObjectName),
+			VersionID: result.ObjectVersionID,
+		}
+		if result.DeleteMarker {
+			msg.DeleteMarker = true
+			msg.VersionID = result.DeleteMarkerVersionID
+		}
+		printMsg(msg)
 	}
 	return nil
 }

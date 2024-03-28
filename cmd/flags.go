@@ -23,40 +23,56 @@ import (
 	"github.com/minio/cli"
 )
 
+const envPrefix = "MC_"
+
 // Collection of mc flags currently supported
 var globalFlags = []cli.Flag{
 	cli.StringFlag{
-		Name:  "config-dir, C",
-		Value: mustGetMcConfigDir(),
-		Usage: "path to configuration folder",
+		Name:   "config-dir, C",
+		Value:  mustGetMcConfigDir(),
+		Usage:  "path to configuration folder",
+		EnvVar: envPrefix + "CONFIG_DIR",
 	},
 	cli.BoolFlag{
-		Name:  "quiet, q",
-		Usage: "disable progress bar display",
+		Name:   "quiet, q",
+		Usage:  "disable progress bar display",
+		EnvVar: envPrefix + "QUIET",
 	},
 	cli.BoolFlag{
-		Name:  "no-color",
-		Usage: "disable color theme",
+		Name:   "disable-pager, dp",
+		Usage:  "disable mc internal pager and print to raw stdout",
+		EnvVar: envPrefix + "DISABLE_PAGER",
+		Hidden: true,
 	},
 	cli.BoolFlag{
-		Name:  "json",
-		Usage: "enable JSON lines formatted output",
+		Name:   "no-color",
+		Usage:  "disable color theme",
+		EnvVar: envPrefix + "NO_COLOR",
 	},
 	cli.BoolFlag{
-		Name:  "debug",
-		Usage: "enable debug output",
+		Name:   "json",
+		Usage:  "enable JSON lines formatted output",
+		EnvVar: envPrefix + "JSON",
 	},
 	cli.BoolFlag{
-		Name:  "insecure",
-		Usage: "disable SSL certificate verification",
+		Name:   "debug",
+		Usage:  "enable debug output",
+		EnvVar: envPrefix + "DEBUG",
+	},
+	cli.BoolFlag{
+		Name:   "insecure",
+		Usage:  "disable SSL certificate verification",
+		EnvVar: envPrefix + "INSECURE",
 	},
 	cli.StringFlag{
-		Name:  "limit-upload",
-		Usage: "limits uploads to a maximum rate in KiB/s, MiB/s, GiB/s. (default: unlimited)",
+		Name:   "limit-upload",
+		Usage:  "limits uploads to a maximum rate in KiB/s, MiB/s, GiB/s. (default: unlimited)",
+		EnvVar: envPrefix + "LIMIT_UPLOAD",
 	},
 	cli.StringFlag{
-		Name:  "limit-download",
-		Usage: "limits downloads to a maximum rate in KiB/s, MiB/s, GiB/s. (default: unlimited)",
+		Name:   "limit-download",
+		Usage:  "limits downloads to a maximum rate in KiB/s, MiB/s, GiB/s. (default: unlimited)",
+		EnvVar: envPrefix + "LIMIT_DOWNLOAD",
 	},
 	cli.DurationFlag{
 		Name:   "conn-read-deadline",
@@ -75,7 +91,13 @@ var globalFlags = []cli.Flag{
 // Flags common across all I/O commands such as cp, mirror, stat, pipe etc.
 var ioFlags = []cli.Flag{
 	cli.StringFlag{
-		Name:  "encrypt-key",
-		Usage: "encrypt/decrypt objects (using server-side encryption with customer provided keys)",
+		Name:   "encrypt-key",
+		Usage:  "encrypt/decrypt objects (using server-side encryption with customer provided keys)",
+		EnvVar: envPrefix + "ENCRYPT_KEY",
+	},
+	cli.StringFlag{
+		Name:   "encrypt",
+		Usage:  "encrypt/decrypt objects (using server-side encryption with server managed keys)",
+		EnvVar: envPrefix + "ENCRYPT",
 	},
 }

@@ -34,7 +34,7 @@ import (
 	"github.com/minio/cli"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/pkg/mimedb"
+	"github.com/minio/pkg/v2/mimedb"
 )
 
 var sqlFlags = []cli.Flag{
@@ -308,11 +308,12 @@ func getCSVHeader(sourceURL string, encKeyDB map[string][]prefixSSEPair) ([]stri
 		r = os.Stdin
 	default:
 		var err *probe.Error
-		var metadata map[string]string
-		if r, metadata, err = getSourceStreamMetadataFromURL(globalContext, sourceURL, "", time.Time{}, encKeyDB, false); err != nil {
+		var content *ClientContent
+		if r, content, err = getSourceStreamMetadataFromURL(globalContext, sourceURL, "", time.Time{}, encKeyDB, false); err != nil {
 			return nil, err.Trace(sourceURL)
 		}
-		ctype := metadata["Content-Type"]
+
+		ctype := content.Metadata["Content-Type"]
 		if strings.Contains(ctype, "gzip") {
 			var e error
 			r, e = gzip.NewReader(r)
@@ -453,7 +454,7 @@ func mainSQL(cliCtx *cli.Context) error {
 	URLs := cliCtx.Args()
 	writeHdr := true
 	for _, url := range URLs {
-		if _, targetContent, err := url2Stat(ctx, url, "", false, encKeyDB, time.Time{}, false); err != nil {
+		if _, targetContent, err := url2Stat(ctx, url2StatOptions{urlStr: url, versionID: "", fileAttr: false, encKeyDB: encKeyDB, timeRef: time.Time{}, isZip: false, ignoreBucketExistsCheck: false}); err != nil {
 			errorIf(err.Trace(url), "Unable to run sql for "+url+".")
 			continue
 		} else if !targetContent.Type.IsDir() {
@@ -471,7 +472,7 @@ func mainSQL(cliCtx *cli.Context) error {
 			continue
 		}
 
-		for content := range clnt.List(ctx, ListOptions{Recursive: cliCtx.Bool("recursive"), ShowDir: DirNone}) {
+		for content := range clnt.List(ctx, ListOptions{Recursive: cliCtx.Bool("recursive"), WithMetadata: true, ShowDir: DirNone}) {
 			if content.Err != nil {
 				errorIf(content.Err.Trace(url), "Unable to list on target `"+url+"`.")
 				continue
@@ -480,6 +481,9 @@ func mainSQL(cliCtx *cli.Context) error {
 				query, csvHdrs, selOpts = getAndValidateArgs(cliCtx, encKeyDB, targetAlias+content.URL.Path)
 			}
 			contentType := mimedb.TypeByExtension(filepath.Ext(content.URL.Path))
+			if len(content.UserMetadata) != 0 && content.UserMetadata["content-type"] != "" {
+				contentType = content.UserMetadata["content-type"]
+			}
 			for _, cTypeSuffix := range supportedContentTypes {
 				if strings.Contains(contentType, cTypeSuffix) {
 					errorIf(sqlSelect(targetAlias+content.URL.Path, query,

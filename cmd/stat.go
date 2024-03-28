@@ -35,7 +35,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/lifecycle"
 	"github.com/minio/minio-go/v7/pkg/notification"
 	"github.com/minio/minio-go/v7/pkg/replication"
-	"github.com/minio/pkg/console"
+	"github.com/minio/pkg/v2/console"
 )
 
 // contentMessage container for content message structure.
@@ -289,7 +289,7 @@ func statURL(ctx context.Context, targetURL, versionID string, timeRef time.Time
 				continue
 			}
 		}
-		_, stat, err := url2Stat(ctx, url, content.VersionID, true, encKeyDB, timeRef, false)
+		_, stat, err := url2Stat(ctx, url2StatOptions{urlStr: url, versionID: content.VersionID, fileAttr: true, encKeyDB: encKeyDB, timeRef: timeRef, isZip: false, ignoreBucketExistsCheck: false})
 		if err != nil {
 			continue
 		}

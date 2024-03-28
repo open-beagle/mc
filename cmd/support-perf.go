@@ -30,7 +30,7 @@ import (
 	json "github.com/minio/colorjson"
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
-	"github.com/minio/pkg/console"
+	"github.com/minio/pkg/v2/console"
 )
 
 var supportPerfFlags = append([]cli.Flag{
@@ -91,7 +91,7 @@ var supportPerfCmd = cli.Command{
 	Action:          mainSupportPerf,
 	OnUsageError:    onUsageError,
 	Before:          setGlobalsFromContext,
-	Flags:           append(supportPerfFlags, supportGlobalFlags...),
+	Flags:           supportPerfFlags,
 	HideHelpCommand: true,
 	CustomHelpTemplate: `NAME:
   {{.HelpName}} - {{.Usage}}
@@ -117,6 +117,7 @@ type PerfTestOutput struct {
 	NetResults             *NetTestResults             `json:"network,omitempty"`
 	SiteReplicationResults *SiteReplicationTestResults `json:"siteReplication,omitempty"`
 	DriveResults           *DriveTestResults           `json:"drive,omitempty"`
+	ClientResults          *ClientResult               `json:"client,omitempty"`
 	Error                  string                      `json:"error,omitempty"`
 }
 
@@ -194,6 +195,14 @@ type NetTestResult struct {
 // NetTestResults - result of the network performance test across all endpoints
 type NetTestResults struct {
 	Results []NetTestResult `json:"servers"`
+}
+
+// ClientResult - result of the network from client to server
+type ClientResult struct {
+	BytesSent uint64 `json:"bytesSent"`
+	TimeSpent int64  `json:"timeSpent"`
+	Endpoint  string `json:"endpoint"`
+	Error     string `json:"error"`
 }
 
 // SiteNetStats - status for siteNet
@@ -310,6 +319,18 @@ func convertDriveTestResults(driveResults []madmin.DriveSpeedTestResult) *DriveT
 	return &r
 }
 
+func convertClientResult(result *madmin.ClientPerfResult) *ClientResult {
+	if result == nil || result.TimeSpent <= 0 {
+		return nil
+	}
+	return &ClientResult{
+		BytesSent: result.BytesSend,
+		TimeSpent: result.TimeSpent,
+		Endpoint:  result.Endpoint,
+		Error:     result.Error,
+	}
+}
+
 func convertSiteReplicationTestResults(netResults *madmin.SiteNetPerfResult) *SiteReplicationTestResults {
 	if netResults == nil {
 		return nil
@@ -418,6 +439,8 @@ func updatePerfOutput(r PerfTestResult, out *PerfTestOutput) {
 		out.NetResults = convertNetTestResults(r.NetResult)
 	case SiteReplicationPerfTest:
 		out.SiteReplicationResults = convertSiteReplicationTestResults(r.SiteReplicationResult)
+	case ClientPerfTest:
+		out.ClientResults = convertClientResult(r.ClientResult)
 	default:
 		fatalIf(errDummy().Trace(), fmt.Sprintf("Invalid test type %d", r.Type))
 	}
@@ -437,7 +460,7 @@ func convertPerfResults(results []PerfTestResult) PerfTestOutput {
 	return out
 }
 
-func execSupportPerf(ctx *cli.Context, aliasedURL string, perfType string) {
+func execSupportPerf(ctx *cli.Context, aliasedURL, perfType string) {
 	alias, apiKey := initSubnetConnectivity(ctx, aliasedURL, true)
 	if len(apiKey) == 0 {
 		// api key not passed as flag. Check that the cluster is registered.
@@ -457,7 +480,7 @@ func execSupportPerf(ctx *cli.Context, aliasedURL string, perfType string) {
 		resultFileNamePfx := fmt.Sprintf("%s-perf_%s", filepath.Clean(alias), UTCNow().Format("20060102150405"))
 		resultFileName := resultFileNamePfx + ".json"
 
-		regInfo := getClusterRegInfo(getAdminInfo(aliasedURL), alias)
+		regInfo := GetClusterRegInfo(getAdminInfo(aliasedURL), alias)
 		tmpFileName, e := zipPerfResult(convertPerfResults(results), resultFileName, regInfo)
 		fatalIf(probe.NewError(e), "Unable to generate zip file from performance results")
 
@@ -467,10 +490,16 @@ func execSupportPerf(ctx *cli.Context, aliasedURL string, perfType string) {
 			return
 		}
 
-		uploadURL := subnetUploadURL("perf", tmpFileName)
+		uploadURL := subnetUploadURL("perf")
 		reqURL, headers := prepareSubnetUploadURL(uploadURL, alias, apiKey)
 
-		_, e = uploadFileToSubnet(alias, tmpFileName, reqURL, headers)
+		_, e = (&subnetFileUploader{
+			alias:             alias,
+			filePath:          tmpFileName,
+			reqURL:            reqURL,
+			headers:           headers,
+			deleteAfterUpload: true,
+		}).uploadFileToSubnet()
 		if e != nil {
 			errorIf(probe.NewError(e), "Unable to upload performance results to SUBNET portal")
 			savePerfResultFile(tmpFileName, resultFileNamePfx)
@@ -481,14 +510,14 @@ func execSupportPerf(ctx *cli.Context, aliasedURL string, perfType string) {
 	}
 }
 
-func savePerfResultFile(tmpFileName string, resultFileNamePfx string) {
+func savePerfResultFile(tmpFileName, resultFileNamePfx string) {
 	zipFileName := resultFileNamePfx + ".zip"
 	e := moveFile(tmpFileName, zipFileName)
 	fatalIf(probe.NewError(e), fmt.Sprintf("Unable to move %s -> %s", tmpFileName, zipFileName))
 	console.Infof("MinIO performance report saved at %s, please upload to SUBNET portal manually\n", zipFileName)
 }
 
-func runPerfTests(ctx *cli.Context, aliasedURL string, perfType string) []PerfTestResult {
+func runPerfTests(ctx *cli.Context, aliasedURL, perfType string) []PerfTestResult {
 	resultCh := make(chan PerfTestResult)
 	results := []PerfTestResult{}
 	defer close(resultCh)
@@ -496,7 +525,7 @@ func runPerfTests(ctx *cli.Context, aliasedURL string, perfType string) []PerfTe
 	tests := []string{perfType}
 	if len(perfType) == 0 {
 		// by default run all tests
-		tests = []string{"net", "drive", "object"}
+		tests = []string{"net", "drive", "object", "client"}
 	}
 
 	for _, t := range tests {
@@ -509,6 +538,8 @@ func runPerfTests(ctx *cli.Context, aliasedURL string, perfType string) []PerfTe
 			mainAdminSpeedTestNetperf(ctx, aliasedURL, resultCh)
 		case "site-replication":
 			mainAdminSpeedTestSiteReplication(ctx, aliasedURL, resultCh)
+		case "client":
+			mainAdminSpeedTestClientPerf(ctx, aliasedURL, resultCh)
 		default:
 			showCommandHelpAndExit(ctx, 1) // last argument is exit code
 		}
