@@ -121,7 +121,7 @@ steps:
       - mv .bin/linux/arm64/mc .bin/20240320/mc_20240320_arm64
       - mv .bin/linux/ppc64le/mc .bin/20240320/mc_20240320_ppc64le
       - mc alias set cache --api=S3v4 https://cache.wodcloud.com $S3_ACCESS_KEY $S3_SECRET_KEY
-      - mc cp --recursive .bin/20240320/ vscode/minio/
+      - mc cp --recursive .bin/20240320/ cache/vscode/minio/
 
 ---
 kind: pipeline
