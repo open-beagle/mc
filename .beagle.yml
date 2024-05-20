@@ -49,7 +49,7 @@ steps:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-amd64
       repo: wod/mc
-      version: 2024-03-20
+      version: 20240320
       channel: amd64
       args: 'TARGETOS=linux,TARGETARCH=amd64'
       registry: registry.cn-qingdao.aliyuncs.com
@@ -67,7 +67,7 @@ steps:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-arm64
       repo: wod/mc
-      version: 2024-03-20
+      version: 20240320
       channel: arm64
       args: 'TARGETOS=linux,TARGETARCH=arm64'
       registry: registry.cn-qingdao.aliyuncs.com
@@ -85,7 +85,7 @@ steps:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-ppc64le
       repo: wod/mc
-      version: 2024-03-20
+      version: 20240320
       channel: ppc64le
       args: 'TARGETOS=linux,TARGETARCH=ppc64le'
       registry: registry.cn-qingdao.aliyuncs.com
@@ -101,12 +101,27 @@ steps:
         path: /var/run/docker.sock
     settings:
       platforms: linux/amd64,linux/arm64,linux/ppc64le
-      template: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-03-20-ARCH
-      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-03-20
+      template: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-ARCH
+      target: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320
       username:
         from_secret: REGISTRY_USER_ALIYUN
       password:
         from_secret: REGISTRY_PASSWORD_ALIYUN
+
+  - name: minio
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-minio:1.0
+    environment:
+      S3_ACCESS_KEY:
+        from_secret: ACCESS_KEY_MINIO
+      S3_SECRET_KEY:
+        from_secret: SECRET_KEY_MINIO
+    commands:
+      - mkdir -p .bin/20240320
+      - mv .bin/linux/amd64/mc .bin/20240320/mc_20240320_amd64
+      - mv .bin/linux/arm64/mc .bin/20240320/mc_20240320_arm64
+      - mv .bin/linux/ppc64le/mc .bin/20240320/mc_20240320_ppc64le
+      - mc alias set cache --api=S3v4 https://cache.wodcloud.com $S3_ACCESS_KEY $S3_SECRET_KEY
+      - mc cp --recursive .bin/20240320/ vscode/minio/
 
 ---
 kind: pipeline
@@ -131,7 +146,7 @@ steps:
       - name: docker
         path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-03-20-amd64
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-amd64
       target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-amd64
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
@@ -145,7 +160,7 @@ steps:
       - name: docker
         path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-03-20-arm64
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-arm64
       target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-arm64
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
@@ -159,7 +174,7 @@ steps:
       - name: docker
         path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-03-20-ppc64le
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-ppc64le
       target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-ppc64le
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
