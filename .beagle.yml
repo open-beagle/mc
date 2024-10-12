@@ -99,10 +99,10 @@ steps:
         from_secret: S3_SECRET_KEY_ALIYUN
     commands:
       - mc alias set aliyun --api=S3v4 https://cache.ali.wodcloud.com $S3_ACCESS_KEY $S3_SECRET_KEY
-      - mkdir -p .bin/2024-10-02
-      - mv .bin/linux/amd64/mc .bin/2024-10-02/mc_2024-10-02_amd64
-      - mv .bin/linux/arm64/mc .bin/2024-10-02/mc_2024-10-02_arm64
-      - mc cp --recursive .bin/2024-10-02/ aliyun/vscode/minio/
+      - mkdir -p parts/2024-10-02
+      - mv parts/linux/amd64/mc parts/2024-10-02/mc_2024-10-02_amd64
+      - mv parts/linux/arm64/mc parts/2024-10-02/mc_2024-10-02_arm64
+      - mc cp --recursive parts/2024-10-02/ aliyun/vscode/minio/
 
 ---
 kind: pipeline
