@@ -23,7 +23,7 @@ import (
 
 	"github.com/minio/cli"
 	"github.com/minio/mc/pkg/probe"
-	"github.com/minio/pkg/v2/console"
+	"github.com/minio/pkg/v3/console"
 )
 
 // profile command flags.
@@ -128,17 +128,17 @@ func execSupportUpload(ctx *cli.Context, alias, apiKey string) {
 		params.Add("message", msg)
 	}
 
-	uploadURL := subnetUploadURL("attachment")
+	uploadURL := SubnetUploadURL("attachment")
 	reqURL, headers := prepareSubnetUploadURL(uploadURL, alias, apiKey)
 
-	_, e := (&subnetFileUploader{
+	_, e := (&SubnetFileUploader{
 		alias:        alias,
-		filePath:     filePath,
-		reqURL:       reqURL,
-		headers:      headers,
-		autoCompress: true,
-		params:       params,
-	}).uploadFileToSubnet()
+		FilePath:     filePath,
+		ReqURL:       reqURL,
+		Headers:      headers,
+		AutoCompress: true,
+		Params:       params,
+	}).UploadFileToSubnet()
 	if e != nil {
 		fatalIf(probe.NewError(e), "Unable to upload file to SUBNET")
 	}

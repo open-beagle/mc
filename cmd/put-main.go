@@ -25,12 +25,13 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/minio/cli"
 	"github.com/minio/mc/pkg/probe"
-	"github.com/minio/pkg/v2/console"
+	"github.com/minio/pkg/v3/console"
 )
 
 // put command flags.
 var (
 	putFlags = []cli.Flag{
+		checksumFlag,
 		cli.IntFlag{
 			Name:  "parallel, P",
 			Usage: "upload number of parts in parallel",
@@ -40,6 +41,15 @@ var (
 			Name:  "part-size, s",
 			Usage: "each part size",
 			Value: "16MiB",
+		},
+		cli.BoolFlag{
+			Name:   "if-not-exists",
+			Usage:  "upload only if object does not exist",
+			Hidden: true,
+		},
+		cli.BoolFlag{
+			Name:  "disable-multipart",
+			Usage: "disable multipart upload feature",
 		},
 	}
 )
@@ -51,7 +61,7 @@ var putCmd = cli.Command{
 	Action:       mainPut,
 	OnUsageError: onUsageError,
 	Before:       setGlobalsFromContext,
-	Flags:        append(append(ioFlags, globalFlags...), putFlags...),
+	Flags:        append(append(encFlags, globalFlags...), putFlags...),
 	CustomHelpTemplate: `NAME:
   {{.HelpName}} - {{.Usage}}
 
@@ -61,17 +71,26 @@ USAGE:
 FLAGS:
   {{range .VisibleFlags}}{{.}}
   {{end}}
+
 ENVIRONMENT VARIABLES:
-  MC_ENCRYPT:      list of comma delimited prefixes
-  MC_ENCRYPT_KEY:  list of comma delimited prefix=secret values
+  MC_ENC_KMS: KMS encryption key in the form of (alias/prefix=key).
+  MC_ENC_S3: S3 encryption key in the form of (alias/prefix=key).
 
 EXAMPLES:
   1. Put an object from local file system to S3 storage
-    {{.Prompt}} {{.HelpName}} path-to/object ALIAS/BUCKET
+     {{.Prompt}} {{.HelpName}} path-to/object play/mybucket
+
   2. Put an object from local file system to S3 bucket with name
-    {{.Prompt}} {{.HelpName}} path-to/object ALIAS/BUCKET/OBJECT-NAME
+     {{.Prompt}} {{.HelpName}} path-to/object play/mybucket/object
+
   3. Put an object from local file system to S3 bucket under a prefix
-    {{.Prompt}} {{.HelpName}} path-to/object ALIAS/BUCKET/PREFIX/
+     {{.Prompt}} {{.HelpName}} path-to/object play/mybucket/object-prefix/
+
+  4. Put an object to MinIO storage using sse-c encryption
+     {{.Prompt}} {{.HelpName}} --enc-c "play/mybucket/object=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDA" path-to/object play/mybucket/object 
+
+  5. Put an object to MinIO storage using sse-kms encryption
+     {{.Prompt}} {{.HelpName}} --enc-kms path-to/object play/mybucket/object 
 `,
 }
 
@@ -84,11 +103,13 @@ func mainPut(cliCtx *cli.Context) (e error) {
 
 	ctx, cancelPut := context.WithCancel(globalContext)
 	defer cancelPut()
+
 	// part size
 	size := cliCtx.String("s")
 	if size == "" {
-		size = "16mb"
+		size = "32MiB"
 	}
+
 	_, perr := humanize.ParseBytes(size)
 	if perr != nil {
 		fatalIf(probe.NewError(perr), "Unable to parse part size")
@@ -99,8 +120,15 @@ func mainPut(cliCtx *cli.Context) (e error) {
 		fatalIf(errInvalidArgument().Trace(strconv.Itoa(threads)), "Invalid number of threads")
 	}
 
-	encKeyDB, err := getEncKeys(cliCtx)
-	fatalIf(err, "Unable to parse encryption keys.")
+	disableMultipart := cliCtx.Bool("disable-multipart")
+
+	// Parse encryption keys per command.
+	encryptionKeys, err := validateAndCreateEncryptionKeys(cliCtx)
+	if err != nil {
+		err.Trace(cliCtx.Args()...)
+	}
+	fatalIf(err, "SSE Error")
+	md5, checksum := parseChecksum(cliCtx)
 
 	if len(args) < 2 {
 		fatalIf(errInvalidArgument().Trace(args...), "Invalid number of arguments.")
@@ -125,7 +153,7 @@ func mainPut(cliCtx *cli.Context) (e error) {
 		opts := prepareCopyURLsOpts{
 			sourceURLs:              sourceURLs,
 			targetURL:               targetURL,
-			encKeyDB:                encKeyDB,
+			encKeyDB:                encryptionKeys,
 			ignoreBucketExistsCheck: true,
 		}
 
@@ -134,9 +162,12 @@ func mainPut(cliCtx *cli.Context) (e error) {
 				putURLsCh <- putURLs
 				break
 			}
+			putURLs.checksum = checksum
+			putURLs.MD5 = md5
 			totalBytes += putURLs.SourceContent.Size
 			pg.SetTotal(totalBytes)
 			totalObjects++
+			putURLs.DisableMultipart = disableMultipart
 			putURLsCh <- putURLs
 		}
 		close(putURLsCh)
@@ -159,13 +190,14 @@ func mainPut(cliCtx *cli.Context) (e error) {
 			urls := doCopy(ctx, doCopyOpts{
 				cpURLs:           putURLs,
 				pg:               pg,
-				encKeyDB:         encKeyDB,
+				encryptionKeys:   encryptionKeys,
 				multipartSize:    size,
 				multipartThreads: strconv.Itoa(threads),
+				ifNotExists:      cliCtx.Bool("if-not-exists"),
 			})
 			if urls.Error != nil {
-				e = urls.Error.ToGoError()
-				showLastProgressBar(pg, e)
+				showLastProgressBar(pg, urls.Error.ToGoError())
+				fatalIf(urls.Error.Trace(), "unable to upload")
 				return
 			}
 		}

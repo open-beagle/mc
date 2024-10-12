@@ -36,7 +36,7 @@ import (
 	json "github.com/minio/colorjson"
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
-	"github.com/minio/pkg/v2/console"
+	"github.com/minio/pkg/v3/console"
 )
 
 const (
@@ -90,7 +90,7 @@ type inspectMessage struct {
 // Colorized message for console printing.
 func (t inspectMessage) String() string {
 	var msg string
-	if globalAirgapped {
+	if globalAirgapped || t.File != "" {
 		if t.Key == "" {
 			msg = fmt.Sprintf("File data successfully downloaded as %s", console.Colorize("File", t.File))
 		} else {
@@ -196,18 +196,18 @@ func mainSupportInspect(ctx *cli.Context) error {
 		return nil
 	}
 
-	uploadURL := subnetUploadURL("inspect")
+	uploadURL := SubnetUploadURL("inspect")
 	reqURL, headers := prepareSubnetUploadURL(uploadURL, alias, apiKey)
 
 	tmpFileName := tmpFile.Name()
-	_, e = (&subnetFileUploader{
+	_, e = (&SubnetFileUploader{
 		alias:             alias,
-		filePath:          tmpFileName,
+		FilePath:          tmpFileName,
 		filename:          inspectOutputFilename,
-		reqURL:            reqURL,
-		headers:           headers,
-		deleteAfterUpload: true,
-	}).uploadFileToSubnet()
+		ReqURL:            reqURL,
+		Headers:           headers,
+		DeleteAfterUpload: true,
+	}).UploadFileToSubnet()
 	if e != nil {
 		console.Errorln("Unable to upload inspect data to SUBNET portal: " + e.Error())
 		saveInspectDataFile(key, tmpFile)

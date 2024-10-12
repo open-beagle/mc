@@ -28,7 +28,7 @@ import (
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/minio-go/v7/pkg/set"
-	"github.com/minio/pkg/v2/console"
+	"github.com/minio/pkg/v3/console"
 )
 
 // profile command flags.
@@ -226,7 +226,7 @@ func execSupportProfile(ctx *cli.Context, client *madmin.AdminClient, alias, api
 	if !globalAirgapped {
 		// Retrieve subnet credentials (login/license) beforehand as
 		// it can take a long time to fetch the profile data
-		uploadURL := subnetUploadURL("profile")
+		uploadURL := SubnetUploadURL("profile")
 		reqURL, headers = prepareSubnetUploadURL(uploadURL, alias, apiKey)
 	}
 
@@ -239,13 +239,13 @@ func execSupportProfile(ctx *cli.Context, client *madmin.AdminClient, alias, api
 	saveProfileFile(data)
 
 	if !globalAirgapped {
-		_, e = (&subnetFileUploader{
+		_, e = (&SubnetFileUploader{
 			alias:             alias,
-			filePath:          profileFile,
-			reqURL:            reqURL,
-			headers:           headers,
-			deleteAfterUpload: true,
-		}).uploadFileToSubnet()
+			FilePath:          profileFile,
+			ReqURL:            reqURL,
+			Headers:           headers,
+			DeleteAfterUpload: true,
+		}).UploadFileToSubnet()
 		if e != nil {
 			printMsg(supportProfileMessage{
 				Status: "error",
