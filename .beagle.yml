@@ -11,32 +11,32 @@ volumes:
       path: /var/run/docker.sock
 
 workspace:
-  path: /go/src/github.com/minio/minio
+  path: /go/src/github.com/minio/mc
 
 clone:
   disable: true
 
 steps:
+  - name: s3-cache
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-s3-cache:1.0
+    settings:
+      restore: true
+      mount:
+        - ./.git
+      endpoint: https://cache.wodcloud.com
+      access_key:
+        from_secret: S3_ACCESS_KEY
+      secret_key:
+        from_secret: S3_SECRET_KEY
+
   - name: fetch
     image: registry.cn-qingdao.aliyuncs.com/wod/devops-git:1.0
     settings:
       proxy:
         from_secret: SOCKS5_PROXY
 
-  - name: s3-cache
-    image: registry.cn-qingdao.aliyuncs.com/wod/devops-s3-cache:1.0
-    settings:
-      restore: true
-      mount:
-        - ./vendor
-      endpoint: https://cache.wodcloud.com
-      access_key:
-        from_secret: ACCESS_KEY_MINIO
-      secret_key:
-        from_secret: SECRET_KEY_MINIO
-
   - name: golang
-    image: registry.cn-qingdao.aliyuncs.com/wod/golang:1.21
+    image: registry.cn-qingdao.aliyuncs.com/wod/golang:1.22-alpine
     commands:
       - bash .beagle/build.sh
 
@@ -49,7 +49,7 @@ steps:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-amd64
       repo: wod/mc
-      version: 20240320
+      version: 2024-10-02
       channel: amd64
       args: 'TARGETOS=linux,TARGETARCH=amd64'
       registry: registry.cn-qingdao.aliyuncs.com
@@ -67,27 +67,9 @@ steps:
       dockerfile: .beagle/dockerfile
       base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-arm64
       repo: wod/mc
-      version: 20240320
+      version: 2024-10-02
       channel: arm64
       args: 'TARGETOS=linux,TARGETARCH=arm64'
-      registry: registry.cn-qingdao.aliyuncs.com
-      registry_user:
-        from_secret: REGISTRY_USER_ALIYUN
-      registry_password:
-        from_secret: REGISTRY_PASSWORD_ALIYUN
-
-  - name: docker-ppc64le
-    image: registry.cn-qingdao.aliyuncs.com/wod/devops-docker:1.0
-    volumes:
-      - name: docker
-        path: /var/run/docker.sock
-    settings:
-      dockerfile: .beagle/dockerfile
-      base: registry.cn-qingdao.aliyuncs.com/wod/alpine:3-ppc64le
-      repo: wod/mc
-      version: 20240320
-      channel: ppc64le
-      args: 'TARGETOS=linux,TARGETARCH=ppc64le'
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
         from_secret: REGISTRY_USER_ALIYUN
@@ -100,9 +82,9 @@ steps:
       - name: docker
         path: /var/run/docker.sock
     settings:
-      platforms: linux/amd64,linux/arm64,linux/ppc64le
-      template: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-ARCH
-      target: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320
+      platforms: linux/amd64,linux/arm64
+      template: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-10-02-ARCH
+      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-10-02
       username:
         from_secret: REGISTRY_USER_ALIYUN
       password:
@@ -112,16 +94,15 @@ steps:
     image: registry.cn-qingdao.aliyuncs.com/wod/devops-minio:1.0
     environment:
       S3_ACCESS_KEY:
-        from_secret: ACCESS_KEY_MINIO
+        from_secret: S3_ACCESS_KEY_ALIYUN
       S3_SECRET_KEY:
-        from_secret: SECRET_KEY_MINIO
+        from_secret: S3_SECRET_KEY_ALIYUN
     commands:
-      - mkdir -p .bin/20240320
-      - mv .bin/linux/amd64/mc .bin/20240320/mc_20240320_amd64
-      - mv .bin/linux/arm64/mc .bin/20240320/mc_20240320_arm64
-      - mv .bin/linux/ppc64le/mc .bin/20240320/mc_20240320_ppc64le
-      - mc alias set cache --api=S3v4 https://cache.wodcloud.com $S3_ACCESS_KEY $S3_SECRET_KEY
-      - mc cp --recursive .bin/20240320/ cache/vscode/minio/
+      - mc alias set aliyun --api=S3v4 https://cache.ali.wodcloud.com $S3_ACCESS_KEY_ALIYUN $S3_SECRET_KEY_ALIYUN
+      - mkdir -p .bin/2024-10-02
+      - mv .bin/linux/amd64/mc .bin/2024-10-02/mc_2024-10-02_amd64
+      - mv .bin/linux/arm64/mc .bin/2024-10-02/mc_2024-10-02_arm64
+      - mc cp --recursive .bin/2024-10-02/ aliyun/vscode/minio/
 
 ---
 kind: pipeline
@@ -131,22 +112,14 @@ trigger:
   branch:
     - main
 
-volumes:
-  - name: docker
-    host:
-      path: /var/run/docker.sock
-
 clone:
   disable: true
 
 steps:
   - name: harbor-amd64
     image: registry.cn-qingdao.aliyuncs.com/wod/devops-docker-tag:1.0
-    volumes:
-      - name: docker
-        path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-amd64
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-10-02-amd64
       target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-amd64
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
@@ -156,26 +129,9 @@ steps:
 
   - name: harbor-arm64
     image: registry.cn-qingdao.aliyuncs.com/wod/devops-docker-tag:1.0
-    volumes:
-      - name: docker
-        path: /var/run/docker.sock
     settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-arm64
+      source: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-10-02-arm64
       target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-arm64
-      registry: registry.cn-qingdao.aliyuncs.com
-      registry_user:
-        from_secret: REGISTRY_USER_ALIYUN
-      registry_password:
-        from_secret: REGISTRY_PASSWORD_ALIYUN
-
-  - name: harbor-ppc64le
-    image: registry.cn-qingdao.aliyuncs.com/wod/devops-docker-tag:1.0
-    volumes:
-      - name: docker
-        path: /var/run/docker.sock
-    settings:
-      source: registry.cn-qingdao.aliyuncs.com/wod/mc:20240320-ppc64le
-      target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-ppc64le
       registry: registry.cn-qingdao.aliyuncs.com
       registry_user:
         from_secret: REGISTRY_USER_ALIYUN
@@ -184,17 +140,26 @@ steps:
 
   - name: harbor-arch
     image: registry.cn-qingdao.aliyuncs.com/wod/devops-docker-manifest:1.0
-    volumes:
-      - name: docker
-        path: /var/run/docker.sock
     settings:
-      platforms: linux/amd64,linux/arm64,linux/ppc64le
+      platforms: linux/amd64,linux/arm64
       template: registry.cn-qingdao.aliyuncs.com/wod/mc:2024-ARCH
       target: registry.cn-qingdao.aliyuncs.com/wod/mc:2024
       username:
         from_secret: REGISTRY_USER_ALIYUN
       password:
         from_secret: REGISTRY_PASSWORD_ALIYUN
+
+  - name: minio
+    image: registry.cn-qingdao.aliyuncs.com/wod/devops-minio:1.0
+    environment:
+      S3_ACCESS_KEY:
+        from_secret: S3_ACCESS_KEY_ALIYUN
+      S3_SECRET_KEY:
+        from_secret: S3_SECRET_KEY_ALIYUN
+    commands:
+      - mc alias set aliyun --api=S3v4 https://cache.ali.wodcloud.com $S3_ACCESS_KEY_ALIYUN $S3_SECRET_KEY_ALIYUN
+      - mc cp aliyun/vscode/minio/mc_2024-10-02_amd64 aliyun/vscode/minio/mc_2024_amd64
+      - mc cp aliyun/vscode/minio/mc_2024-10-02_arm64 aliyun/vscode/minio/mc_2024_arm64
 
 ---
 kind: secret
@@ -219,14 +184,14 @@ get:
 
 ---
 kind: secret
-name: ACCESS_KEY_MINIO
+name: S3_ACCESS_KEY_ALIYUN
 get:
-  name: ACCESS_KEY_MINIO
+  name: S3_ACCESS_KEY_ALIYUN
   path: devops-secrets
 
 ---
 kind: secret
-name: SECRET_KEY_MINIO
+name: S3_SECRET_KEY_ALIYUN
 get:
-  name: SECRET_KEY_MINIO
+  name: S3_SECRET_KEY_ALIYUN
   path: devops-secrets

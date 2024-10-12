@@ -1,18 +1,19 @@
 #!/bin/sh
 
+git config --global --add safe.directory $PWD
+
 set -x
 
-export GOARCH=amd64
+export TARGETPLATFORM=linux/amd64
+xx-apk add perl
+xx-go --wrap
 make build
 mkdir -p .bin/linux/$GOARCH
 mv mc .bin/linux/$GOARCH/mc
 
-export GOARCH=arm64
-make build
-mkdir -p .bin/linux/$GOARCH
-mv mc .bin/linux/$GOARCH/mc
-
-export GOARCH=ppc64le
+export TARGETPLATFORM=linux/arm64
+xx-apk add perl
+xx-go --wrap
 make build
 mkdir -p .bin/linux/$GOARCH
 mv mc .bin/linux/$GOARCH/mc
