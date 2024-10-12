@@ -10,4 +10,4 @@ LABEL maintainer=${AUTHOR} version=${VERSION}
 ARG TARGETOS
 ARG TARGETARCH
 
-COPY .bin/${TARGETOS}/${TARGETARCH}/mc /usr/local/bin/mc
+COPY parts/${TARGETOS}/${TARGETARCH}/mc /usr/local/bin/mc

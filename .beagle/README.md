@@ -22,7 +22,21 @@ docker run -it \
   bash .beagle/build.sh
 
 # check
-file .bin/linux/arm64/mc
+file parts/linux/arm64/mc
+
+# debug
+docker run -it \
+  --rm \
+  -v $PWD/:/go/src/github.com/minio/mc \
+  -w /go/src/github.com/minio/mc \
+  -e S3_ACCESS_KEY=${PLUGIN_MINIO_ACCESS_KEY_ALIYUN} \
+  -e S3_SECRET_KEY=${PLUGIN_MINIO_SECRET_KEY_ALIYUN} \
+  registry.cn-qingdao.aliyuncs.com/wod/devops-minio:1.0 \
+  ash -c 'mc alias set aliyun --api=S3v4 https://cache.ali.wodcloud.com $S3_ACCESS_KEY $S3_SECRET_KEY
+    mkdir -p parts/2024-10-02
+    mv parts/linux/amd64/mc parts/2024-10-02/mc_2024-10-02_amd64
+    mv parts/linux/arm64/mc parts/2024-10-02/mc_2024-10-02_arm64
+    mc cp --recursive parts/2024-10-02/ aliyun/vscode/minio/'
 ```
 
 ## cache

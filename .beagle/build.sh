@@ -8,12 +8,12 @@ export TARGETPLATFORM=linux/amd64
 xx-apk add perl
 xx-go --wrap
 make build
-mkdir -p .bin/$TARGETPLATFORM
-mv mc .bin/$TARGETPLATFORM/mc
+mkdir -p parts/$TARGETPLATFORM
+mv mc parts/$TARGETPLATFORM/mc
 
 export TARGETPLATFORM=linux/arm64
 xx-apk add perl
 xx-go --wrap
 make build
-mkdir -p .bin/$TARGETPLATFORM
-mv mc .bin/$TARGETPLATFORM/mc
+mkdir -p parts/$TARGETPLATFORM
+mv mc parts/$TARGETPLATFORM/mc
